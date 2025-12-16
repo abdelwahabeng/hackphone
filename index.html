@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Mobile Hack UI</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: Consolas, "Courier New", monospace;
+    }
+    body {
+      background: #000;
+      color: #0f0;
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+    }
+
+    /* خلفية عامة ماتريكس خفيفة */
+    body::before {
+      content: "";
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(circle at top, #003300 0, #000 55%);
+      opacity: 0.5;
+      pointer-events: none;
+    }
+
+    /* إطار الموبايل */
+    .phone {
+      position: relative;
+      width: 320px;
+      height: 640px;
+      border-radius: 32px;
+      padding: 14px;
+      background: #111;
+      border: 3px solid #333;
+      box-shadow: 0 0 30px #0f0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      z-index: 2;
+    }
+
+    /* النوتش */
+    .phone-notch {
+      position: absolute;
+      top: 8px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 120px;
+      height: 26px;
+      background: #000;
+      border-radius: 0 0 18px 18px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.8);
+    }
+
+    /* شاشة الموبايل */
+    .phone-screen {
+      margin-top: 40px;
+      width: 100%;
+      height: calc(100% - 70px);
+      border-radius: 24px;
+      background: #000;
+      overflow: hidden;
+      position: relative;
+      border: 1px solid #0f0;
+    }
+
+    /* زر الهوم تحت */
+    .phone-home {
+      position: absolute;
+      bottom: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 54px;
+      height: 54px;
+      border-radius: 50%;
+      border: 2px solid #333;
+      background: radial-gradient(circle, #222 0, #000 60%);
+      box-shadow: 0 0 8px #000;
+    }
+
+    /* كانفس ماتريكس جوه الشاشة */
+    #matrix {
+      position: absolute;
+      inset: 0;
+      z-index: 1;
+    }
+
+    /* طبقة اللوج فوق الماتريكس */
+    .screen-overlay {
+      position: relative;
+      z-index: 2;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      padding: 8px;
+    }
+
+    .screen-header {
+      font-size: 11px;
+      color: #0f0;
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 4px;
+      opacity: 0.8;
+    }
+
+    .log-box {
+      flex: 1;
+      background: rgba(0,0,0,0.6);
+      border: 1px solid #0f0;
+      border-radius: 6px;
+      padding: 6px;
+      font-size: 10px;
+      line-height: 1.3;
+      overflow: hidden;
+      white-space: pre-wrap;
+    }
+
+    .status-row {
+      margin-top: 5px;
+      font-size: 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .progress-bar {
+      flex: 1;
+      height: 6px;
+      border-radius: 3px;
+      border: 1px solid #0f0;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .progress-fill {
+      position: absolute;
+      inset: 0;
+      width: 0%;
+      background: linear-gradient(90deg,#0f0,#0f8,#0f0);
+      transition: width 0.08s linear;
+    }
+
+    .hack-success {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      background: rgba(0,0,0,0.9);
+      color: #00aa44;
+      font-size: 20px;
+      text-shadow: 0 0 10px #00aa44;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.4s ease;
+      z-index: 3;
+      font-weight: bold;
+      animation: pulse 1.2s ease-in-out infinite;
+    }
+    .hack-success.visible {
+      opacity: 1;
+    }
+
+    @keyframes pulse {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.04); }
+      100% { transform: scale(1); }
+    }
+  </style>
+</head>
+<body>
+
+<div class="phone">
+  <div class="phone-notch"></div>
+
+  <div class="phone-screen">
+    <canvas id="matrix"></canvas>
+
+    <div class="screen-overlay">
+      <div class="screen-header">
+        <span>DEVICE: ANDROID-27X</span>
+        <span id="timerLabel">00:07</span>
+      </div>
+
+      <div class="log-box" id="log"></div>
+
+      <div class="status-row">
+        <span id="statusText">INITIALIZING...</span>
+        <div class="progress-bar">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="hack-success" id="hackSuccess">
+      HACKED SUCCESSFUL
+    </div>
+  </div>
+
+  <div class="phone-home"></div>
+</div>
+
+<script>
+  // ماتريكس داخل شاشة الموبايل
+  const canvas = document.getElementById('matrix');
+  const ctx = canvas.getContext('2d');
+
+  function resizeCanvas() {
+    const rect = canvas.parentElement.getBoundingClientRect();
+    canvas.width = rect.width;
+    canvas.height = rect.height;
+  }
+  resizeCanvas();
+  window.addEventListener('resize', resizeCanvas);
+
+  let w = canvas.width;
+  let h = canvas.height;
+  const fontSize = 14;
+  const columns = Math.floor(w / fontSize);
+  const drops = [];
+  const alphabet = "アァカサタナハマ0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+  for (let i = 0; i < columns; i++) {
+    drops[i] = Math.random() * -20;
+  }
+
+  function drawMatrix() {
+    ctx.fillStyle = "rgba(0,0,0,0.08)";
+    ctx.fillRect(0, 0, w, h);
+
+    ctx.fillStyle = "#0f0";
+    ctx.font = fontSize + "px monospace";
+
+    for (let i = 0; i < drops.length; i++) {
+      const text = alphabet.charAt(Math.floor(Math.random() * alphabet.length));
+      ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+
+      if (drops[i] * fontSize > h && Math.random() > 0.975) {
+        drops[i] = 0;
+      }
+      drops[i]++;
+    }
+    requestAnimationFrame(drawMatrix);
+  }
+  drawMatrix();
+
+  // سحب داتا 7 ثواني
+  const logEl = document.getElementById('log');
+  const statusText = document.getElementById('statusText');
+  const progressFill = document.getElementById('progressFill');
+  const hackSuccess = document.getElementById('hackSuccess');
+  const timerLabel = document.getElementById('timerLabel');
+
+  const lines = [
+    "[+] Connecting to target mobile...",
+    "[+] Negotiating secure session...",
+    "[+] Elevating privileges...",
+    "[+] Scanning installed apps...",
+    "[+] Mirroring notifications buffer...",
+    "[+] Extracting contact index...",
+    "[+] Dumping message headers...",
+    "[+] Copying gallery thumbnails...",
+    "[+] Capturing GPS trace snapshot...",
+    "[+] Packing data stream...",
+    "[+] Uploading session package...",
+    "[+] Cleaning temporary artifacts...",
+    "[+] Verifying hash signatures...",
+    "[+] Finalizing session..."
+  ];
+
+  let lineIndex = 0;
+  function appendLine() {
+    if (lineIndex < lines.length) {
+      logEl.textContent += lines[lineIndex] + "\n";
+      logEl.scrollTop = logEl.scrollHeight;
+      lineIndex++;
+    }
+  }
+
+  const totalDuration = 7000;   // 7 ثواني
+  const interval = 70;          // تحديث كل 70ms تقريبًا [web:31][web:33]
+  const steps = totalDuration / interval;
+  let currentStep = 0;
+
+  const countdownStart = 7;
+  function updateTimerLabel(remainMs) {
+    let sec = Math.ceil(remainMs / 1000);
+    if (sec < 0) sec = 0;
+    const s = sec.toString().padStart(2, "0");
+    timerLabel.textContent = "00:" + s;
+  }
+
+  updateTimerLabel(totalDuration);
+
+  const timer = setInterval(() => {
+    currentStep++;
+    const percent = Math.min(100, Math.floor((currentStep / steps) * 100));
+    progressFill.style.width = percent + "%";
+    statusText.textContent = "EXTRACTING DATA... " + percent + "%";
+
+    if (currentStep % 2 === 0) {
+      appendLine();
+    }
+
+    const remain = totalDuration - currentStep * interval;
+    updateTimerLabel(remain);
+
+    if (currentStep >= steps) {
+      clearInterval(timer);
+      statusText.textContent = "SESSION STATUS: HACKED SUCCESSFUL";
+      timerLabel.textContent = "00:00";
+      hackSuccess.classList.add("visible");
+
+      if (navigator.vibrate) {
+        navigator.vibrate([200, 100, 200, 100, 200]); // مثال استخدام Vibration API. [web:38][web:40]
+      }
+    }
+  }, interval);
+</script>
+
+</body>
+</html>
